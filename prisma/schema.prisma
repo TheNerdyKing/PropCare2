@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PROPC_DATABASE_URL")
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  subdomain   String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  users       User[]
+  properties  Property[]
+  tickets     Ticket[]
+  contractors Contractor[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("EMPLOYEE") // ADMIN, EMPLOYEE
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs AuditLog[]
+}
+
+model Property {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  zipCode   String
+  city      String
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets     Ticket[]
+  contractors ContractorPropertyMap[]
+}
+
+model Contractor {
+  id           String   @id @default(uuid())
+  name         String
+  email        String
+  phone        String?
+  tradeType    String   // e.g., PLUMBING, ELECTRICAL
+  zipCodes     String   // Comma-separated or JSON string
+  cities       String   // Comma-separated or JSON string
+  serviceRadius Int?    // in km
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  properties ContractorPropertyMap[]
+  tickets    Ticket[]
+}
+
+model ContractorPropertyMap {
+  id           String     @id @default(uuid())
+  contractorId String
+  propertyId   String
+  contractor   Contractor @relation(fields: [contractorId], references: [id])
+  property     Property   @relation(fields: [propertyId], references: [id])
+
+  @@unique([contractorId, propertyId])
+}
+
+model Ticket {
+  id              String   @id @default(uuid())
+  referenceId     String   @unique // Human readable ref
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id])
+  unit            String?
+  category        String?
+  urgency         String   @default("NORMAL") // EMERGENCY, URGENT, NORMAL, NOT_SURE
+  description     String
+  contactName     String
+  contactEmail    String
+  contactPhone    String?
+  permissionToEnter Boolean @default(false)
+  status          String   @default("OPEN") // OPEN, IN_PROGRESS, WAITING_FOR_CONTRACTOR, COMPLETED, CANCELLED
+  
+  aiResult        AiResult?
+  attachments     Attachment[]
+  outboundEmails  OutboundEmail[]
+  auditLogs       AuditLog[]
+  
+  contractorId    String?
+  contractor      Contractor? @relation(fields: [contractorId], references: [id])
+  
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String
+  url       String
+  mimeType  String
+  size      Int
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model AiResult {
+  id                    String   @id @default(uuid())
+  ticketId              String   @unique
+  ticket                Ticket   @relation(fields: [ticketId], references: [id])
+  category              String
+  urgency               String
+  recommendedContractors String   // JSON string
+  draftEmailSubject     String
+  draftEmailBody        String
+  missingInfo           String   // JSON string
+  createdAt             DateTime @default(now())
+}
+
+model OutboundEmail {
+  id        String   @id @default(uuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  to        String
+  subject   String
+  body      String
+  sentAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id])
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?  // JSON string
+  createdAt DateTime @default(now())
+}

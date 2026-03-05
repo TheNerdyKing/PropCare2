@@ -1,0 +1,7 @@
+{
+  "name": "PropCare SaaS",
+  "description": "Swiss-hosted Property Management SaaS with real-time portfolio updates, automated damage reporting, and AI-driven contractor coordination.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
